@@ -50,16 +50,14 @@ class ADS1X15Sensor(CBPiSensor):
         else:
             ads = ADS.ADS1015(i2c, address=self.props.Address)
         match self.props.Channel:
-            case 0:
+            if(self.props.Channel==0):
                 self.dev = AnalogIn(ads, ADS.P0)
-            case 1:
+            else if(self.props.Channel==1):
                 self.dev = AnalogIn(ads, ADS.P1)
-            case 2:
+            else if(self.props.Channel==2):
                 self.dev = AnalogIn(ads, ADS.P2)
-            case 3:
+            else if(self.props.Channel==3):
                 self.dev = AnalogIn(ads, ADS.P3)
-            case _:
-                self.dev = AnalogIn(ads, ADS.P0)
         self.value = 0
 
     async def run(self):
