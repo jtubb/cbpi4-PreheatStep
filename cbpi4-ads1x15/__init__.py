@@ -51,11 +51,11 @@ class ADS1X15Sensor(CBPiSensor):
             ads = ADS.ADS1015(i2c, address=self.props.Address)
         if(self.props.Channel==0):
             self.dev = AnalogIn(ads, ADS.P0)
-        else if(self.props.Channel==1):
+        elif(self.props.Channel==1):
             self.dev = AnalogIn(ads, ADS.P1)
-        else if(self.props.Channel==2):
+        elif(self.props.Channel==2):
             self.dev = AnalogIn(ads, ADS.P2)
-        else if(self.props.Channel==3):
+        elif(self.props.Channel==3):
             self.dev = AnalogIn(ads, ADS.P3)
         self.value = 0
 
