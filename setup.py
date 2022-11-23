@@ -20,7 +20,6 @@ setup(name='cbpi4-ads1x15',
       'cbpi4-ads1x15': ['*','*.txt', '*.rst', '*.yaml']},
       packages=['cbpi4-ads1x15'],
 	    install_requires=[
-            'cbpi>=4.0.0.45',
             'numpy',
             'adafruit-circuitpython-ads1x15'
       ],
