@@ -34,24 +34,24 @@ def getI2CDevices():
 @parameters([Property.Select(label="Chip", options=["ADS1015","ADS1115"]),
              Property.Select(label="Address", options=getI2CDevices()),
              Property.Select(label="Channel", options=[0,1,2,3]),             
-             Property.Select(label="Gain", options=[(2/3, 1, 2, 4, 8, 16)], description="GAIN    RANGE (V)<br>----    ---------<br>2/3    +/- 6.144<br>  1    +/- 4.096<br>  2    +/- 2.048<br>  4    +/- 1.024<br>  8    +/- 0.512<br> 16    +/- 0.256"), 
+             Property.Select(label="Gain", options=["2/3", "1", "2", "4", "8", "16"], description="GAIN    RANGE (V)<br>----    ---------<br>2/3    +/- 6.144<br>  1    +/- 4.096<br>  2    +/- 2.048<br>  4    +/- 1.024<br>  8    +/- 0.512<br> 16    +/- 0.256"), 
              Property.Number(label="Min_Range", configurable=True, default_value=0, description="Sensor value to map to 0"), 
              Property.Number(label="Max_Range", configurable=True, default_value=4095, description="Sensor value to map to 100"),
-             Property.Select(label="Read_Mode", options=["Voltage","Raw","Ranged"], description="Output Raw Value or Range from 0-100")])
-             
+             Property.Select(label="Read_Mode", options=["Voltage","Raw","Ranged"], description="Output Raw Value or Range from 0-100"),
+             Property.Select(label="Interval", options=[1,5,10,30,60], description="Interval in Seconds")])
+
              
 class ADS1X15Sensor(CBPiSensor):
 
     def __init__(self, cbpi, id, props):
-        super(CustomSensor, self).__init__(cbpi, id, props)
+        super(ADS1X15Sensor, self).__init__(cbpi, id, props)
         i2c = busio.I2C(board.SCL, board.SDA)
         if(self.props.Chip == "ADS1115"):
-            ads = ADS.ADS1115(i2c, address=self.props.Address)
+            ads = ADS.ADS1115(i2c, address=int(self.props.Address, 16))
         else:
-            ads = ADS.ADS1015(i2c, address=self.props.Address)
-        if(self.props.Channel==0):
-            self.dev = AnalogIn(ads, ADS.P0)
-        elif(self.props.Channel==1):
+            ads = ADS.ADS1015(i2c, address=int(self.props.Address, 16))
+        self.dev = AnalogIn(ads, ADS.P0)
+        if(self.props.Channel==1):
             self.dev = AnalogIn(ads, ADS.P1)
         elif(self.props.Channel==2):
             self.dev = AnalogIn(ads, ADS.P2)
@@ -68,7 +68,7 @@ class ADS1X15Sensor(CBPiSensor):
                 self.value = int(interp(self.value, [0, 100], [int(self.props.Min_Range), int(self.props.Max_Range)]));
             self.log_data(self.value)
             self.push_update(self.value)
-            await asyncio.sleep(1)
+            await asyncio.sleep(self.Interval)
 
     def get_state(self):
         return dict(value=self.value)
