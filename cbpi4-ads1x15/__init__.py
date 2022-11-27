@@ -45,35 +45,35 @@ class ADS1X15Sensor(CBPiSensor):
 
     def __init__(self, cbpi, id, props):
         super(ADS1X15Sensor, self).__init__(cbpi, id, props)
-        self.props.Sensor = self.props.Chip+" "+self.props.Address+"-"+str(self.props.Channel)
+        self.props.Sensor = self.props.get("Chip")+" "+self.props.get("Address")+"-"+str(self.props.get("Channel"))
         i2c = busio.I2C(board.SCL, board.SDA)
-        if(self.props.Chip == "ADS1115"):
-            ads = ADS.ADS1115(i2c, address=int(self.props.Address, 16))
+        if(self.props.get("Chip","ADS1115") == "ADS1115"):
+            ads = ADS.ADS1115(i2c, address=int(self.props.get("Address"), 16))
         else:
-            ads = ADS.ADS1015(i2c, address=int(self.props.Address, 16))
+            ads = ADS.ADS1015(i2c, address=int(self.props.get("Address"), 16))
         try:
-            ads.gain = int(self.props.Gain)
+            ads.gain = int(self.props.get("Gain","1"))
         except:
             ads.gain = 2/3
         self.dev = AnalogIn(ads, ADS.P0)
-        if(self.props.Channel==1):
+        if(self.props.get("Channel",0)==1):
             self.dev = AnalogIn(ads, ADS.P1)
-        elif(self.props.Channel==2):
+        elif(self.props.get("Channel",0)==2):
             self.dev = AnalogIn(ads, ADS.P2)
-        elif(self.props.Channel==3):
+        elif(self.props.get("Channel",0)==3):
             self.dev = AnalogIn(ads, ADS.P3)
         self.value = 0
 
     async def run(self):
         while self.running:
             self.value = self.dev.value
-            if (self.props.Read_Mode=="Voltage"):
+            if (self.props.get("Read_Mode","Raw")=="Voltage"):
                 self.value = self.dev.voltage
-            if(self.props.Read_Mode=="Ranged"):
-                self.value = int(interp(self.value, [0, 100], [int(self.props.Min_Range), int(self.props.Max_Range)]));
+            if(self.props.get("Read_Mode","Raw")=="Ranged"):
+                self.value = int(interp(self.value, [0, 100], [int(self.props.get("Min_Range",0)), int(self.props.get("Max_Range",4096))]));
             self.log_data(self.value)
             self.push_update(self.value)
-            await asyncio.sleep(self.Interval)
+            await asyncio.sleep(self.props.get("Interval",5))
 
     def get_state(self):
         return dict(value=self.value)
