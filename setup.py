@@ -6,12 +6,12 @@ this_directory = path.abspath(path.dirname(__file__))
 with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
-setup(name='cbpi4-ads1x15',
-      version='0.0.2',
+setup(name='cbpi4-PreHeatStep',
+      version='0.0.1',
       description='CraftBeerPi4 ads1x15',
       author='Jonathan Tubb',
       author_email='jonathan.tubb@gmail.com',
-      url='https://github.com/jtubb/cbpi4-ads1x15',
+      url='https://github.com/jtubb/cbpi4-PreHeatStep',
       license='GPLv3',
       include_package_data=True,
       package_data={
@@ -21,7 +21,6 @@ setup(name='cbpi4-ads1x15',
       packages=['cbpi4-ads1x15'],
 	    install_requires=[
             'numpy',
-            'adafruit-circuitpython-ads1x15'
       ],
       long_description=long_description,
       long_description_content_type='text/markdown'
