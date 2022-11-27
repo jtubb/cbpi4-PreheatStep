@@ -45,6 +45,7 @@ class ADS1X15Sensor(CBPiSensor):
 
     def __init__(self, cbpi, id, props):
         super(ADS1X15Sensor, self).__init__(cbpi, id, props)
+        self.name = self.props.Chip + " "+self.props.Address+":"+self.props.Channel
         i2c = busio.I2C(board.SCL, board.SDA)
         if(self.props.Chip == "ADS1115"):
             ads = ADS.ADS1115(i2c, address=int(self.props.Address, 16))
