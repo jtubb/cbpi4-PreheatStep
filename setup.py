@@ -17,8 +17,8 @@ setup(name='cbpi4-PreheatStep',
       package_data={
         # If any package contains *.txt or *.rst files, include them:
       '': ['*.txt', '*.rst', '*.yaml'],
-      'cbpi4-ads1x15': ['*','*.txt', '*.rst', '*.yaml']},
-      packages=['cbpi4-ads1x15'],
+      'cbpi4-PreheatStep': ['*','*.txt', '*.rst', '*.yaml']},
+      packages=['cbpi4-PreheatStep'],
 	    install_requires=[
             'numpy',
       ],
