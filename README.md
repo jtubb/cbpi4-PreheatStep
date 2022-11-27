@@ -5,7 +5,7 @@
 From your command line run the following:
 
 ```
-sudo pip3 install --upgrade https://github.com/jtubb/cbpi4-PreheatStep/archive/main.zip
+sudo pip3 install --no-cache-dir --upgrade https://github.com/jtubb/cbpi4-PreheatStep/archive/main.zip
 ```
 
 Requires cbpi>=4.0.0.45, current development branch.
