@@ -26,7 +26,7 @@ def getI2CDevices():
             logger.info("ADS1X15 ACTOR DEVICE DETECTED - ADDRESS %s" % (device))
         return devarr
     except Exception as e:
-        logger.info("ADS1X15 ACTOR DETECT I2C BUS FAILED %s" % (e))
+        logger.info("ADS1X15 ACTOR DETECT I2C BUS FAILED - %s" % (e))
         return []
 
 
@@ -34,7 +34,7 @@ def getI2CDevices():
 @parameters([Property.Select(label="Chip", options=["ADS1015","ADS1115"]),
              Property.Select(label="Address", options=getI2CDevices()),
              Property.Select(label="Channel", options=[0,1,2,3]),             
-             Property.Select(label="Gain", options=["2/3", "1", "2", "4", "8", "16"], description="GAIN    RANGE (V)<br>----    ---------<br>2/3    +/- 6.144<br>  1    +/- 4.096<br>  2    +/- 2.048<br>  4    +/- 1.024<br>  8    +/- 0.512<br> 16    +/- 0.256"), 
+             Property.Select(label="Gain", options=["2/3", "1", "2", "4", "8", "16"], description="Gain Range"), 
              Property.Number(label="Min_Range", configurable=True, default_value=0, description="Sensor value to map to 0"), 
              Property.Number(label="Max_Range", configurable=True, default_value=4095, description="Sensor value to map to 100"),
              Property.Select(label="Read_Mode", options=["Voltage","Raw","Ranged"], description="Output Raw Value or Range from 0-100"),
@@ -50,6 +50,10 @@ class ADS1X15Sensor(CBPiSensor):
             ads = ADS.ADS1115(i2c, address=int(self.props.Address, 16))
         else:
             ads = ADS.ADS1015(i2c, address=int(self.props.Address, 16))
+        try:
+            ads.gain = int(self.props.Gain)
+        except:
+            ads.gain = 2/3
         self.dev = AnalogIn(ads, ADS.P0)
         if(self.props.Channel==1):
             self.dev = AnalogIn(ads, ADS.P1)
