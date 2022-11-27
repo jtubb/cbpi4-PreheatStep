@@ -1,97 +1,83 @@
+
 import asyncio
-import random
-import logging
+import aiohttp
+from aiohttp import web
+from cbpi.api.step import CBPiStep, StepResult
+from cbpi.api.timer import Timer
+from cbpi.api.dataclasses import Kettle, Props
+from datetime import datetime
+import time
 from cbpi.api import *
+import logging
+from socket import timeout
+from typing import KeysView
+from cbpi.api.config import ConfigType
 from cbpi.api.base import CBPiBase
-from cbpi.api.dataclasses import Kettle, Props, Fermenter
+from voluptuous.schema_builder import message
+from cbpi.api.dataclasses import NotificationAction, NotificationType
+import numpy as np
+import requests
+import warnings
 
-import subprocess
-import os
-import board
-import busio
-from numpy import interp
-import adafruit_ads1x15.ads1115 as ADS
-from adafruit_ads1x15.analog_in import AnalogIn
+@parameters([Property.Number(label="Temp", configurable=True),
+             Property.Kettle(label="Kettle"))
 
-logger = logging.getLogger(__name__)
-        
-def getI2CDevices():
-    try:
-        devarr = []
-        i2c = busio.I2C(board.SCL, board.SDA)
-        devarr = [hex(int(x)) for x in i2c.scan()]
-        filter_list=['0x48', '0x49', '0x4a', '0x4b']
-        devarr = list(filter(lambda x: any([x.find(y) == 0 for y in filter_list]), devarr))
-        for device in devarr:
-            logger.info("ADS1X15 ACTOR DEVICE DETECTED - ADDRESS %s" % (device))
-        return devarr
-    except Exception as e:
-        logger.info("ADS1X15 ACTOR DETECT I2C BUS FAILED - %s" % (e))
-        return []
+class PreheatStep(CBPiStep):
+class NotificationStep(CBPiStep):
 
+    async def NextStep(self, **kwargs):
+        await self.next()
 
+    async def on_timer_done(self,timer):
+        self.summary = ""
+        await self.push_update()
 
-@parameters([Property.Select(label="Chip", options=["ADS1015","ADS1115"]),
-             Property.Select(label="Address", options=getI2CDevices()),
-             Property.Select(label="Channel", options=[0,1,2,3]),             
-             Property.Select(label="Gain", options=["2/3", "1", "2", "4", "8", "16"], description="Gain Range"), 
-             Property.Number(label="Min_Range", configurable=True, default_value=0, description="Sensor value to map to 0"), 
-             Property.Number(label="Max_Range", configurable=True, default_value=4095, description="Sensor value to map to 100"),
-             Property.Select(label="Read_Mode", options=["Voltage","Raw","Ranged"], description="Output Raw Value or Range from 0-100"),
-             Property.Select(label="Interval", options=[1,5,10,30,60], description="Interval in Seconds")])
+        self.cbpi.notify(self.name, "Preheating value set", NotificationType.SUCCESS)
+        await self.next()
 
-             
-class ADS1X15Sensor(CBPiSensor):
+    async def on_timer_update(self,timer, seconds):
+        await self.push_update()
 
-    def __init__(self, cbpi, id, props):
-        super(ADS1X15Sensor, self).__init__(cbpi, id, props)
-        self.props.Sensor = self.props.get("Chip")+" "+self.props.get("Address")+"-"+str(self.props.get("Channel"))
-        i2c = busio.I2C(board.SCL, board.SDA)
-        if(self.props.get("Chip","ADS1115") == "ADS1115"):
-            ads = ADS.ADS1115(i2c, address=int(self.props.get("Address"), 16))
-        else:
-            ads = ADS.ADS1015(i2c, address=int(self.props.get("Address"), 16))
-        try:
-            ads.gain = int(self.props.get("Gain","1"))
-        except:
-            ads.gain = 2/3
-        self.dev = AnalogIn(ads, ADS.P0)
-        if(self.props.get("Channel",0)==1):
-            self.dev = AnalogIn(ads, ADS.P1)
-        elif(self.props.get("Channel",0)==2):
-            self.dev = AnalogIn(ads, ADS.P2)
-        elif(self.props.get("Channel",0)==3):
-            self.dev = AnalogIn(ads, ADS.P3)
-        self.value = 0
+    async def on_start(self):
+        self.kettle=self.get_kettle(self.props.get("Kettle", None))
+        if self.kettle is not None:
+            self.kettle.target_temp = int(self.props.get("Temp", 0))
+            await self.setAutoMode(True)
+        self.summary = "Setting preheat temperature"
+        if self.cbpi.kettle is not None and self.timer is None:
+            self.timer = Timer(1 ,on_update=self.on_timer_update, on_done=self.on_timer_done)
+        await self.push_update()
+
+    async def on_stop(self):
+        await self.timer.stop()
+        self.summary = ""
+        await self.push_update()
 
     async def run(self):
-        while self.running:
-            self.value = self.dev.value
-            if (self.props.get("Read_Mode","Raw")=="Voltage"):
-                self.value = self.dev.voltage
-            if(self.props.get("Read_Mode","Raw")=="Ranged"):
-                self.value = int(interp(self.value, [0, 100], [int(self.props.get("Min_Range",0)), int(self.props.get("Max_Range",4096))]));
-            self.log_data(self.value)
-            self.push_update(self.value)
-            await asyncio.sleep(self.props.get("Interval",5))
+        while self.running == True:
+            await asyncio.sleep(1)
+            if self.timer.is_running is not True:
+                self.timer.start()
+                self.timer.is_running = True
 
-    def get_state(self):
-        return dict(value=self.value)
+        return StepResult.DONE
 
+    async def setAutoMode(self, auto_state):
+    try:
+        if (self.kettle.instance is None or self.kettle.instance.state == False):
+            await self.cbpi.kettle.toggle(self.kettle.id)
+        await self.push_update()
+
+    except Exception as e:
+        logging.error("Failed to switch on KettleLogic {} {}".format(self.kettle.id, e))
+            
 def setup(cbpi):
-
     '''
     This method is called by the server during startup 
     Here you need to register your plugins at the server
-    
+
     :param cbpi: the cbpi core 
     :return: 
-    '''
-    try:
-        subprocess.run(["modprobe","i2c-bcm2835"])
-        subprocess.run(["modprobe","i2c-dev"])
-    except Exception as e:
-        logger.info("ADS1X15 ACTOR MODPROBE FAILED %s" % (e))
-        pass
-        
-    cbpi.plugin.register("ADS1X15Sensor", ADS1X15Sensor)
+    '''    
+    
+    cbpi.plugin.register("PreheatStep", PreheatStep)

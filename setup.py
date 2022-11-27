@@ -6,12 +6,12 @@ this_directory = path.abspath(path.dirname(__file__))
 with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
-setup(name='cbpi4-PreHeatStep',
+setup(name='cbpi4-PreheatStep',
       version='0.0.1',
-      description='CraftBeerPi4 ads1x15',
+      description='CraftBeerPi4 Preheat Step',
       author='Jonathan Tubb',
       author_email='jonathan.tubb@gmail.com',
-      url='https://github.com/jtubb/cbpi4-PreHeatStep',
+      url='https://github.com/jtubb/cbpi4-PreheatStep',
       license='GPLv3',
       include_package_data=True,
       package_data={
