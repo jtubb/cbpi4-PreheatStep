@@ -20,7 +20,7 @@ import requests
 import warnings
 
 @parameters([Property.Number(label="Temp", configurable=True),
-             Property.Kettle(label="Kettle"))
+             Property.Kettle(label="Kettle")])
 
 class PreheatStep(CBPiStep):
 
