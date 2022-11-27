@@ -23,7 +23,6 @@ import warnings
              Property.Kettle(label="Kettle"))
 
 class PreheatStep(CBPiStep):
-class NotificationStep(CBPiStep):
 
     async def NextStep(self, **kwargs):
         await self.next()
