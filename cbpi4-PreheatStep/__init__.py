@@ -20,7 +20,10 @@ import requests
 import warnings
 
 @parameters([Property.Number(label="Temp", configurable=True),
-             Property.Kettle(label="Kettle")])
+             Property.Kettle(label="Kettle"),
+             Property.Sensor(label="Sensor"),
+             Property.Number(label="Min_Value", description="Sensor value must be higher than this to continue to the next step.", configurable=True),
+             Property.Number(label="Max_Value", description="Sensor value must be lower than this to continue to the next step.", configurable=True)])
 
 class PreheatStep(CBPiStep):
 
@@ -55,10 +58,15 @@ class PreheatStep(CBPiStep):
     async def run(self):
         while self.running == True:
             await asyncio.sleep(1)
-            if self.timer.is_running is not True:
+            sensor_value=0
+            if self.props.get("Sensor", None) is not None:
+                sensor_value = self.get_sensor_value(self.props.get("Sensor", None)).get("value")
+            if sensor_value >= int(self.props.get("Min_Value",-65535)) and sensor_value <= int(self.props.get("Max_Value",65535)) and self.timer.is_running is not True:
                 self.timer.start()
                 self.timer.is_running = True
-
+            else:
+                self.summary="Sensor interlock not met"
+            await self.push_update()
         return StepResult.DONE
 
     async def setAutoMode(self, auto_state):
@@ -70,48 +78,45 @@ class PreheatStep(CBPiStep):
         except Exception as e:
             logging.error("Failed to switch on KettleLogic {} {}".format(self.kettle.id, e))
 
-@parameters([Property.Sensor(label="Sensor", configurable=True),
-             Property.Number(label="Min_Value"), description="Sensor value must be higher than this to continue to the next step.", configurable=True),
-             Property.Number(label="Max_Value"), description="Sensor value must be lower than this to continue to the next step.", configurable=True)])
 
 class TimerStep(CBPiStep):
     @action("Add 5 Minutes to Timer", [])
-    async def set_timer(self):
-        if self.timer.is_running == True:
-            self.cbpi.notify(self.name, '30 Minutes added', NotificationType.INFO)
-            await self.timer.set_time(self.timer.get_time()+300)
-            estimated_completion_time = datetime.fromtimestamp(time.time()+ (self.timer.get_time())*60)
-            self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%H:%M")), NotificationType.INFO)
+    async def add_5_timer(self):
+        if self.timer is not None and self.timer.is_running == True:
+            self.cbpi.notify(self.name, '5 Minutes added', NotificationType.INFO)
+            await self.timer.add(300)
+            estimated_completion_time = datetime.fromtimestamp(self.timer.end_time)
+            self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%m/%d/%y %I:%M:%S %p")), NotificationType.INFO)
         else:
             self.cbpi.notify(self.name, 'Timer must be running to add time', NotificationType.WARNING)
     
     @action("Remove 5 Minutes from Timer", [])
-    async def set_timer(self):
-        if self.timer.is_running == True:
-            self.cbpi.notify(self.name, '30 Minutes added', NotificationType.INFO)
-            await self.timer.set_time(self.timer.get_time()-300)
-            estimated_completion_time = datetime.fromtimestamp(time.time()+ (self.timer.get_time())*60)
-            self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%H:%M")), NotificationType.INFO)
+    async def remove_5_timer(self):
+        if self.timer is not None and self.timer.is_running == True:
+            self.cbpi.notify(self.name, '5 Minutes removed', NotificationType.INFO)
+            await self.timer.add(-300)
+            estimated_completion_time = datetime.fromtimestamp(self.timer.end_time)
+            self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%m/%d/%y %I:%M:%S %p")), NotificationType.INFO)
         else:
             self.cbpi.notify(self.name, 'Timer must be running to add time', NotificationType.WARNING)
             
     @action("Add 30 Minutes to Timer", [])
-    async def set_timer(self):
-        if self.timer.is_running == True:
+    async def add_30_timer(self):
+        if self.timer is not None and self.timer.is_running == True:
             self.cbpi.notify(self.name, '30 Minutes added', NotificationType.INFO)
-            await self.timer.set_time(self.timer.get_time()+1800)
-            estimated_completion_time = datetime.fromtimestamp(time.time()+ (self.timer.get_time())*60)
-            self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%H:%M")), NotificationType.INFO)
+            await self.timer.add(1800)
+            estimated_completion_time = datetime.fromtimestamp(self.timer.end_time)
+            self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%m/%d/%y %I:%M:%S %p")), NotificationType.INFO)
         else:
             self.cbpi.notify(self.name, 'Timer must be running to add time', NotificationType.WARNING)
     
     @action("Remove 30 Minutes from Timer", [])
-    async def set_timer(self):
-        if self.timer.is_running == True:
-            self.cbpi.notify(self.name, '30 Minutes added', NotificationType.INFO)
-            await self.timer.set_time(self.timer.get_time()-1800)
-            estimated_completion_time = datetime.fromtimestamp(time.time()+ (self.timer.get_time())*60)
-            self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%H:%M")), NotificationType.INFO)
+    async def remove_30_timer(self):
+        if self.timer is not None and self.timer.is_running == True:
+            self.cbpi.notify(self.name, '30 Minutes removed', NotificationType.INFO)
+            await self.timer.add(-1800)
+            estimated_completion_time = datetime.fromtimestamp(self.timer.end_time)
+            self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%m/%d/%y %I:%M:%S %p")), NotificationType.INFO)
         else:
             self.cbpi.notify(self.name, 'Timer must be running to add time', NotificationType.WARNING)
     
@@ -126,12 +131,15 @@ class TimerStep(CBPiStep):
         await self.next()
 
     async def on_timer_update(self,timer, seconds):
+        self.summary = 'Estimated Start:\r\n{}'.format(datetime.fromtimestamp(time.time()+ (seconds)).strftime("%m/%d/%y %I:%M %p"))
         await self.push_update()
 
     async def on_start(self):
         self.summary = "Starting Brew Timer"
         if self.timer is None:
             self.timer = Timer(1800 ,on_update=self.on_timer_update, on_done=self.on_timer_done)
+        else:
+            self.timer.end_time = time.time()+1800
         await self.push_update()
 
     async def on_stop(self):
@@ -139,11 +147,13 @@ class TimerStep(CBPiStep):
         self.summary = ""
         await self.push_update()
 
+    async def reset(self):
+        self.timer = Timer(1800, on_update=self.on_timer_update, on_done=self.on_timer_done)
+        
     async def run(self):
         while self.running == True:
             await asyncio.sleep(1)
-            sensor_value = self.get_sensor_value(self.props.get("Sensor", None)).get("value")
-            if sensor_value >= int(self.props.get("Min_Value",-65535)) and sensor_value <= int(self.props.get("Max_Value",65535)) and self.timer.is_running is not True:
+            if self.timer.is_running is not True:
                 self.timer.start()
                 self.timer.is_running = True
 
