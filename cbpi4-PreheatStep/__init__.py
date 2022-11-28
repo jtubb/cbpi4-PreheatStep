@@ -21,6 +21,7 @@ import warnings
 
 @parameters([Property.Number(label="Temp", configurable=True),
              Property.Kettle(label="Kettle"),
+             Property.Actor(label="Actor", description="Agitator"),
              Property.Sensor(label="Sensor"),
              Property.Number(label="Min_Value", description="Sensor value must be higher than this to continue to the next step.", configurable=True),
              Property.Number(label="Max_Value", description="Sensor value must be lower than this to continue to the next step.", configurable=True)])
@@ -41,6 +42,10 @@ class PreheatStep(CBPiStep):
         await self.push_update()
 
     async def on_start(self):
+        self.actor = self.props.get("Actor", None)
+        if self.actor is not None:
+            await self.actor_on(self.actor)
+
         self.kettle=self.get_kettle(self.props.get("Kettle", None))
         if self.kettle is not None:
             self.kettle.target_temp = int(self.props.get("Temp", 0))
@@ -89,7 +94,7 @@ class TimerStep(CBPiStep):
             self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%m/%d/%y %I:%M:%S %p")), NotificationType.INFO)
         else:
             self.cbpi.notify(self.name, 'Timer must be running to add time', NotificationType.WARNING)
-    
+
     @action("Remove 5 Minutes from Timer", [])
     async def remove_5_timer(self):
         if self.timer is not None and self.timer.is_running == True:
@@ -99,7 +104,7 @@ class TimerStep(CBPiStep):
             self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%m/%d/%y %I:%M:%S %p")), NotificationType.INFO)
         else:
             self.cbpi.notify(self.name, 'Timer must be running to add time', NotificationType.WARNING)
-            
+
     @action("Add 30 Minutes to Timer", [])
     async def add_30_timer(self):
         if self.timer is not None and self.timer.is_running == True:
@@ -109,7 +114,7 @@ class TimerStep(CBPiStep):
             self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%m/%d/%y %I:%M:%S %p")), NotificationType.INFO)
         else:
             self.cbpi.notify(self.name, 'Timer must be running to add time', NotificationType.WARNING)
-    
+
     @action("Remove 30 Minutes from Timer", [])
     async def remove_30_timer(self):
         if self.timer is not None and self.timer.is_running == True:
@@ -119,7 +124,7 @@ class TimerStep(CBPiStep):
             self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%m/%d/%y %I:%M:%S %p")), NotificationType.INFO)
         else:
             self.cbpi.notify(self.name, 'Timer must be running to add time', NotificationType.WARNING)
-    
+
     async def NextStep(self, **kwargs):
         await self.next()
 
@@ -138,8 +143,6 @@ class TimerStep(CBPiStep):
         self.summary = "Starting Brew Timer"
         if self.timer is None:
             self.timer = Timer(1800 ,on_update=self.on_timer_update, on_done=self.on_timer_done)
-        else:
-            self.timer.end_time = time.time()+1800
         await self.push_update()
 
     async def on_stop(self):
@@ -148,8 +151,9 @@ class TimerStep(CBPiStep):
         await self.push_update()
 
     async def reset(self):
-        self.timer = Timer(1800, on_update=self.on_timer_update, on_done=self.on_timer_done)
-        
+        if(time.time()+300 < self.timer.end_time):
+             self.timer = Timer(1800, on_update=self.on_timer_update, on_done=self.on_timer_done)
+
     async def run(self):
         while self.running == True:
             await asyncio.sleep(1)
@@ -158,15 +162,15 @@ class TimerStep(CBPiStep):
                 self.timer.is_running = True
 
         return StepResult.DONE
-    
+
 def setup(cbpi):
     '''
-    This method is called by the server during startup 
+    This method is called by the server during startup
     Here you need to register your plugins at the server
 
-    :param cbpi: the cbpi core 
-    :return: 
-    '''    
-    
+    :param cbpi: the cbpi core
+    :return:
+    '''
+
     cbpi.plugin.register("PreheatStep", PreheatStep)
     cbpi.plugin.register("TimerStep", TimerStep)
