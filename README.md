@@ -14,4 +14,4 @@ Adds a recipe step that will set a specified kettle to a defined target temperat
 
 ##  Changelog
 
-**11.23.22: Initial release
+**11.27.22: Initial release

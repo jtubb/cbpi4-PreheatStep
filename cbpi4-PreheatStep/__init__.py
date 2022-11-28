@@ -62,14 +62,93 @@ class PreheatStep(CBPiStep):
         return StepResult.DONE
 
     async def setAutoMode(self, auto_state):
-    try:
-        if (self.kettle.instance is None or self.kettle.instance.state == False):
-            await self.cbpi.kettle.toggle(self.kettle.id)
+        try:
+            if (self.kettle.instance is None or self.kettle.instance.state == False):
+                await self.cbpi.kettle.toggle(self.kettle.id)
+            await self.push_update()
+
+        except Exception as e:
+            logging.error("Failed to switch on KettleLogic {} {}".format(self.kettle.id, e))
+
+@parameters([Property.Sensor(label="Sensor", configurable=True),
+             Property.Number(label="Min_Value"), description="Sensor value must be higher than this to continue to the next step.", configurable=True),
+             Property.Number(label="Max_Value"), description="Sensor value must be lower than this to continue to the next step.", configurable=True)])
+
+class TimerStep(CBPiStep):
+    @action("Add 5 Minutes to Timer", [])
+    async def set_timer(self):
+        if self.timer.is_running == True:
+            self.cbpi.notify(self.name, '30 Minutes added', NotificationType.INFO)
+            await self.timer.set_time(self.timer.get_time()+300)
+            estimated_completion_time = datetime.fromtimestamp(time.time()+ (self.timer.get_time())*60)
+            self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%H:%M")), NotificationType.INFO)
+        else:
+            self.cbpi.notify(self.name, 'Timer must be running to add time', NotificationType.WARNING)
+    
+    @action("Remove 5 Minutes from Timer", [])
+    async def set_timer(self):
+        if self.timer.is_running == True:
+            self.cbpi.notify(self.name, '30 Minutes added', NotificationType.INFO)
+            await self.timer.set_time(self.timer.get_time()-300)
+            estimated_completion_time = datetime.fromtimestamp(time.time()+ (self.timer.get_time())*60)
+            self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%H:%M")), NotificationType.INFO)
+        else:
+            self.cbpi.notify(self.name, 'Timer must be running to add time', NotificationType.WARNING)
+            
+    @action("Add 30 Minutes to Timer", [])
+    async def set_timer(self):
+        if self.timer.is_running == True:
+            self.cbpi.notify(self.name, '30 Minutes added', NotificationType.INFO)
+            await self.timer.set_time(self.timer.get_time()+1800)
+            estimated_completion_time = datetime.fromtimestamp(time.time()+ (self.timer.get_time())*60)
+            self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%H:%M")), NotificationType.INFO)
+        else:
+            self.cbpi.notify(self.name, 'Timer must be running to add time', NotificationType.WARNING)
+    
+    @action("Remove 30 Minutes from Timer", [])
+    async def set_timer(self):
+        if self.timer.is_running == True:
+            self.cbpi.notify(self.name, '30 Minutes added', NotificationType.INFO)
+            await self.timer.set_time(self.timer.get_time()-1800)
+            estimated_completion_time = datetime.fromtimestamp(time.time()+ (self.timer.get_time())*60)
+            self.cbpi.notify(self.name, 'Timer started. Estimated Start: {}'.format(estimated_completion_time.strftime("%H:%M")), NotificationType.INFO)
+        else:
+            self.cbpi.notify(self.name, 'Timer must be running to add time', NotificationType.WARNING)
+    
+    async def NextStep(self, **kwargs):
+        await self.next()
+
+    async def on_timer_done(self,timer):
+        self.summary = ""
         await self.push_update()
 
-    except Exception as e:
-        logging.error("Failed to switch on KettleLogic {} {}".format(self.kettle.id, e))
-            
+        self.cbpi.notify(self.name, "Starting Brew", NotificationType.SUCCESS)
+        await self.next()
+
+    async def on_timer_update(self,timer, seconds):
+        await self.push_update()
+
+    async def on_start(self):
+        self.summary = "Starting Brew Timer"
+        if self.timer is None:
+            self.timer = Timer(1800 ,on_update=self.on_timer_update, on_done=self.on_timer_done)
+        await self.push_update()
+
+    async def on_stop(self):
+        await self.timer.stop()
+        self.summary = ""
+        await self.push_update()
+
+    async def run(self):
+        while self.running == True:
+            await asyncio.sleep(1)
+            sensor_value = self.get_sensor_value(self.props.get("Sensor", None)).get("value")
+            if sensor_value >= int(self.props.get("Min_Value",-65535)) and sensor_value <= int(self.props.get("Max_Value",65535)) and self.timer.is_running is not True:
+                self.timer.start()
+                self.timer.is_running = True
+
+        return StepResult.DONE
+    
 def setup(cbpi):
     '''
     This method is called by the server during startup 
@@ -80,3 +159,4 @@ def setup(cbpi):
     '''    
     
     cbpi.plugin.register("PreheatStep", PreheatStep)
+    cbpi.plugin.register("TimerStep", TimerStep)
